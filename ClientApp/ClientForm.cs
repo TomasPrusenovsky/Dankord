@@ -1,60 +1,93 @@
+using ServerApp;
 using System.ComponentModel;
 using System.Net;
 using System.Net.Sockets;
-using System.Text.Json;
-using ServerApp;
 
 namespace Chat_App
 {
 	public partial class DankordWindow : Form
 	{
+		public const string WindowHeader = "Client";
+
 		private TcpClient _client;
 
-		private string UserName { get => nameBox.Text; set { nameBox.Text = value; } }
+		private string? UserName
+		{ get => nameBox.Text.Trim(); set { nameBox.Text = value; } }
 
-		//private List<TcpClient> _clients;
+		private string? ServerIP
+		{
+			get => ClientIP.Text.Trim();
+			set => ClientIP.Text = value;
+		}
 
-		public TcpListener listener;
-		public StreamReader reader;
-		public StreamWriter writer;
+		private string? ServerPort
+		{
+			get => ClientPort.Text.Trim();
+			set => ClientPort.Text = value;
+		}
+
+		public StreamReader? reader;
+		public StreamWriter? writer;
 
 		public DankordWindow()
 		{
 			InitializeComponent();
 			UserName = "Danek";
-			//_clients = new List<TcpClient>();
 		}
 
-		private void ConnectClient_Click(object sender, EventArgs e)
+		private void Local_Click(object sender, EventArgs e)
+		{
+			ServerIP = "127.0.0.1";
+			ServerPort = "7777";
+		}
+
+		private void Connect()
 		{
 			_client = new TcpClient();
-			IPEndPoint IpEnd = new IPEndPoint(IPAddress.Parse(ClientIP.Text.Trim()), int.Parse(ClientPort.Text.Trim()));
-
 			try
 			{
+				IPEndPoint IpEnd = new IPEndPoint(IPAddress.Parse(ServerIP), int.Parse(ServerPort));
 				_client.Connect(IpEnd);
-				Messages.Text += ("Connect to Server" + "\n");
-				writer = new StreamWriter(_client.GetStream());
+
 				reader = new StreamReader(_client.GetStream());
+				writer = new StreamWriter(_client.GetStream());
 				writer.AutoFlush = true;
+
+				Messages.Text += ("Connected to Server!" + "\n");
+
 				BackgroundReceiver.RunWorkerAsync();
 				BackgroundSender.WorkerSupportsCancellation = true;
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show(ex.Message.ToString());
+				LogMessage(WindowHeader, ex.Message);
 			}
 		}
 
-		private void Local_Click(object sender, EventArgs e)
+		private void Disconnect()
 		{
-			ClientIP.Text = "127.0.0.1";
-			ClientPort.Text = "7777";
+			try
+			{
+				_client.Close();
+			}
+			catch (Exception ex)
+			{
+				LogMessage(WindowHeader, ex.Message);
+			}
 		}
 
 		private void RequestNameChange()
 		{
-			UserName = nameBox.Text.Trim();
+			if (string.IsNullOrEmpty(MessText.Text)) return;
+			if (!_client.Connected) return;
+
+			string tcpMessage = TcpMessage.TcpMessageToString(new(
+					TcpMessageType.NameChangeRequest,
+					UserName,
+					UserName
+				));
+
+			writer.WriteLine(tcpMessage);
 		}
 
 		private void SendMessage()
@@ -62,19 +95,15 @@ namespace Chat_App
 			if (string.IsNullOrEmpty(MessText.Text)) return;
 			if (!_client.Connected) return;
 
-			TcpMessage tcpMessage = new(
+			string tcpMessage = TcpMessage.TcpMessageToString(new(
 					TcpMessageType.PublicMessage,
-					MessText.Text
-				);
+					UserName,
+					MessText.Text.Trim()
+				));
+
 			MessText.Text = string.Empty;
 
-			string formattedTextForServer = JsonSerializer.Serialize(tcpMessage);
-			writer.WriteLine(formattedTextForServer);
-
-			Messages.Invoke(new MethodInvoker(delegate ()
-			{
-				Messages.Text += (tcpMessage + "\n");
-			}));
+			writer.WriteLine(tcpMessage);
 		}
 
 		private void ReceiveMessage()
@@ -83,32 +112,46 @@ namespace Chat_App
 			{
 				try
 				{
+					if (reader == null) throw new NullReferenceException();
+
 					string? receivedMessage = reader.ReadLine();
-					if (receivedMessage == null) throw new Exception("Received message was null");
-					TcpMessage tcpMessage = JsonSerializer.Deserialize<TcpMessage>(receivedMessage);
+					if (receivedMessage == null) return;
+					TcpMessage tcpMessage = TcpMessage.StringToTcpMessage(receivedMessage);
 
-					/*
-					//// tohle smazat a predelat aby server poslal klientovi jeho vlastni zpravu zpatky, pro "klientske potvrzeni", ze serveru opravdu zprava prisla
-
-					Messages.Invoke(new MethodInvoker(delegate ()
+					switch (tcpMessage.Type)
 					{
-						Messages.Text += (receivedMessage + "\n");
-					}));
-					*/
+						case TcpMessageType.PublicMessage:
+							LogMessage(tcpMessage.Sender, tcpMessage.Message);
+							return;
 
-					receivedMessage = string.Empty;
+						case TcpMessageType.NameChangeRequest:
+							UserName = tcpMessage.Message;
+							LogMessage(tcpMessage.Sender, $"*Changed your username to {tcpMessage.Message}!*");
+							return;
+
+						default:
+							LogMessage(WindowHeader, $"Server sent back a TcpMessage with the {tcpMessage.Type} type, which should not be possible");
+							return;
+					}
 				}
 				catch (Exception ex)
 				{
-					MessageBox.Show(ex.Message);
+					LogMessage(WindowHeader, ex.Message);
 				}
 			}
 		}
+
+		public void LogMessage(string sender, string message, bool includeTimeStamp = true) => Messages.Invoke(new MethodInvoker(delegate
+		{
+			Messages.Text += $"{(includeTimeStamp ? "[" + DateTime.Now + "] " : "")}{sender}: {message}\n";
+		}));
 
 		private void Receiver_DoWork(object sender, DoWorkEventArgs e) => ReceiveMessage();
 
 		private void SendButton_Click(object sender, EventArgs e) => SendMessage();
 
 		private void ChangeButton_Click(object sender, EventArgs e) => RequestNameChange();
+
+		private void ConnectClient_Click(object sender, EventArgs e) => Connect();
 	}
 }
