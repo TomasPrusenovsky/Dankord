@@ -32,7 +32,7 @@ namespace ServerApp
 			writer = new(this.tcpClient.GetStream());
 			writer.AutoFlush = true;
 
-			ClientThread = new Thread(() =>  HandleClient(tcpClient, server));
+			ClientThread = new Thread(() => HandleClient(tcpClient, server));
 			ClientThread.Start();
 		}
 
@@ -47,9 +47,9 @@ namespace ServerApp
 			//return message;
 		}
 
-		public void SendMessage()
+		public void SendMessage(TcpMessage message)
 		{
-
+			writer.WriteLine(TcpMessage.TcpMessageToString(message));
 		}
 
 		private async void HandleClient(TcpClient tcpClient, Server server)
@@ -60,6 +60,16 @@ namespace ServerApp
 				{
 					server.LogMessage(WindowHeader, "Awaiting message from client...");
 					string? message = await AwaitMessage();
+					if (message == null)
+					{
+						server.LogMessage(WindowHeader, "Received message was null");
+						continue;
+					}
+
+					TcpMessage tcpMessage = TcpMessage.StringToTcpMessage(message);
+
+					server.BroadcastMessage(tcpMessage);
+
 					server.LogMessage(WindowHeader, "Message received!");
 					message ??= string.Empty;
 					server.LogMessage(userName, message);

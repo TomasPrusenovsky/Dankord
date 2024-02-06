@@ -42,12 +42,13 @@
 			Change = new Button();
 			Messages = new RichTextBox();
 			Local = new Button();
+			vitekButton = new Button();
 			SuspendLayout();
 			// 
 			// label3
 			// 
 			label3.AutoSize = true;
-			label3.Location = new Point(255, 45);
+			label3.Location = new Point(359, 44);
 			label3.Margin = new Padding(2, 0, 2, 0);
 			label3.Name = "label3";
 			label3.Size = new Size(29, 15);
@@ -66,7 +67,7 @@
 			// 
 			// ClientPort
 			// 
-			ClientPort.Location = new Point(255, 62);
+			ClientPort.Location = new Point(359, 61);
 			ClientPort.Margin = new Padding(2);
 			ClientPort.Name = "ClientPort";
 			ClientPort.Size = new Size(69, 23);
@@ -74,7 +75,7 @@
 			// 
 			// ClientIP
 			// 
-			ClientIP.Location = new Point(90, 62);
+			ClientIP.Location = new Point(194, 61);
 			ClientIP.Margin = new Padding(2);
 			ClientIP.Name = "ClientIP";
 			ClientIP.Size = new Size(161, 23);
@@ -82,7 +83,7 @@
 			// 
 			// ConnectClient
 			// 
-			ConnectClient.Location = new Point(328, 62);
+			ConnectClient.Location = new Point(432, 61);
 			ConnectClient.Margin = new Padding(2);
 			ConnectClient.Name = "ConnectClient";
 			ConnectClient.Size = new Size(75, 23);
@@ -166,12 +167,24 @@
 			Local.UseVisualStyleBackColor = true;
 			Local.Click += Local_Click;
 			// 
+			// vitekButton
+			// 
+			vitekButton.Location = new Point(90, 61);
+			vitekButton.Margin = new Padding(2);
+			vitekButton.Name = "vitekButton";
+			vitekButton.Size = new Size(75, 23);
+			vitekButton.TabIndex = 22;
+			vitekButton.Text = "Vitek";
+			vitekButton.UseVisualStyleBackColor = true;
+			vitekButton.Click += vitekButton_Click;
+			// 
 			// DankordWindow
 			// 
 			AcceptButton = Send;
 			AutoScaleDimensions = new SizeF(96F, 96F);
 			AutoScaleMode = AutoScaleMode.Dpi;
 			ClientSize = new Size(558, 421);
+			Controls.Add(vitekButton);
 			Controls.Add(Local);
 			Controls.Add(Messages);
 			Controls.Add(Change);
@@ -206,5 +219,6 @@
 		private Button Change;
 		private RichTextBox Messages;
 		private Button Local;
+		private Button vitekButton;
 	}
 }

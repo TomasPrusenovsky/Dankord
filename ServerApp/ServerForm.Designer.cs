@@ -52,7 +52,7 @@
 			portInputBox.Name = "portInputBox";
 			portInputBox.Size = new Size(68, 23);
 			portInputBox.TabIndex = 1;
-			portInputBox.Text = "3333";
+			portInputBox.Text = "7777";
 			portInputBox.TextAlign = HorizontalAlignment.Center;
 			// 
 			// portLabel

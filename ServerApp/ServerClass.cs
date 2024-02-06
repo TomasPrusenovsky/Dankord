@@ -77,14 +77,25 @@ namespace ServerApp
 			}
 		}
 
-		public void BroadcastMessage()
+		public void BroadcastMessage(TcpMessage message)
 		{
+			try
+			{
+				foreach (Client client in clientPool)
+				{
+					client.SendMessage(message);
+				}
+			}
+			catch (Exception ex)
+			{
+				LogError(WindowHeader, ex.Message);
+			}
 
 		}
 
-		public void LogMessage(string sender, string message)
+		public void LogMessage(string sender, string message, bool includeTimeStamp = true)
 		{
-			messageLog += $"{sender}: {message}\n";
+			messageLog += $"{(includeTimeStamp ? "[" + DateTime.Now + "] " : "")}{sender}: {message}\n";
 			ServerForm.__instance.Invoke(new MethodInvoker(
 				ServerForm.__instance.RefreshOutputWindow
 			));

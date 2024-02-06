@@ -153,5 +153,11 @@ namespace Chat_App
 		private void ChangeButton_Click(object sender, EventArgs e) => RequestNameChange();
 
 		private void ConnectClient_Click(object sender, EventArgs e) => Connect();
+
+		private void vitekButton_Click(object sender, EventArgs e)
+		{
+			ServerIP = "185.82.239.12";
+			ServerPort = "25565";
+		}
 	}
 }
