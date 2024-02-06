@@ -1,4 +1,4 @@
-namespace ServerApp
+namespace DankordServerApp
 {
 	internal static class Program
 	{

@@ -3,7 +3,7 @@ using System.Net.Http;
 using System.Net.Sockets;
 using System.Windows.Forms;
 
-namespace ServerApp
+namespace DankordServerApp
 {
 	internal class Server
 	{
@@ -14,7 +14,7 @@ namespace ServerApp
 		private readonly TcpListener listener;
 
 		private readonly Thread poolManager;
-		private List<Client> clientPool;
+		public List<Client> clientPool;
 
 		public string messageLog = string.Empty;
 
@@ -95,12 +95,27 @@ namespace ServerApp
 
 		public void LogMessage(string sender, string message, bool includeTimeStamp = true)
 		{
-			messageLog += $"{(includeTimeStamp ? "[" + DateTime.Now + "] " : "")}{sender}: {message}\n";
+			DateTime t = DateTime.Now;
+			messageLog += $"{(includeTimeStamp ? $"[{t.Hour}:{t.Minute}:{t.Second}.{t.Millisecond}] " : "")}{sender}: {message}\n";
 			ServerForm.__instance.Invoke(new MethodInvoker(
 				ServerForm.__instance.RefreshOutputWindow
 			));
 		}
 
-		public void LogError(string sender, string message) => LogMessage(sender, message); // zmenit az zavedeme barevny text bo to by bylo hrozne cool kamo, proste predstav si ze by ten text mohl byt barevny, kazdy uzivatel by si mohl vybrat vlastni barvicku, a chyby by hazely cerveny text, takze by jen nikdo nemohl mit cervenou aby se to nepletlo, ale pak to bude hrozne dobry bo ty errory uvidis hodne jednoduse
+		public void LogDebug(string sender, string message, bool includeTimeStamp = true)
+		{
+
+		}
+
+		public void LogError(string sender, string message, bool includeTimeStamp = true) => LogMessage(sender, message, includeTimeStamp);
+		// zmenit az zavedeme barevny text bo to by bylo hrozne cool kamo
+		// proste predstav si ze by ten text mohl byt barevny
+		// kazdy uzivatel by si mohl vybrat vlastni barvicku,
+		// a chyby by hazely cerveny text
+		// takze by jen nikdo nemohl mit cervenou aby se to nepletlo
+		// ale pak to bude hrozne dobry bo ty errory uvidis hodne jednoduse
+		// proste kvalitka kamo to fakt chces
+		// na tom bychom vazne meli zapracovat
+		// proste to by bylo fakt hrozne skvely, barvicky jsou cool
 	}
 }

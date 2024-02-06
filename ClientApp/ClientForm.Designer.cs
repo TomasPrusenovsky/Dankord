@@ -1,6 +1,6 @@
-﻿namespace Chat_App
+﻿namespace DankordClientApp
 {
-	partial class DankordWindow
+	partial class ClientForm
 	{
 		/// <summary>
 		///  Required designer variable.
@@ -178,7 +178,7 @@
 			vitekButton.UseVisualStyleBackColor = true;
 			vitekButton.Click += vitekButton_Click;
 			// 
-			// DankordWindow
+			// ClientForm
 			// 
 			AcceptButton = Send;
 			AutoScaleDimensions = new SizeF(96F, 96F);

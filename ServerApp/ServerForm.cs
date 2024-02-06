@@ -1,13 +1,13 @@
 using System.Net;
 using System.Diagnostics;
 
-namespace ServerApp
+namespace DankordServerApp
 {
 	public partial class ServerForm : Form
 	{
 		public const string WindowHeader = "ServerForm";
 
-		public static ServerForm __instance;
+		public static ServerForm? __instance;
 
 		private Server? server;
 

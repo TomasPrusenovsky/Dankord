@@ -6,7 +6,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
-namespace ServerApp
+namespace DankordServerApp
 {
 	[Serializable]
 	public struct TcpMessage(TcpMessageType type, string sender, string message)

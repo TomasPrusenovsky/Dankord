@@ -1,4 +1,4 @@
-namespace Chat_App
+namespace DankordClientApp
 {
 	internal static class Program
 	{
@@ -11,7 +11,7 @@ namespace Chat_App
 			// To customize application configuration such as set high DPI settings or default font,
 			// see https://aka.ms/applicationconfiguration.
 			ApplicationConfiguration.Initialize();
-			Application.Run(new DankordWindow());
+			Application.Run(new ClientForm());
 		}
 	}
 }

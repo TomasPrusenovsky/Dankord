@@ -1,35 +1,40 @@
-using ServerApp;
+using DankordServerApp;
 using System.ComponentModel;
 using System.Net;
+using System.Net.Http;
 using System.Net.Sockets;
+using System.Windows.Forms;
 
-namespace Chat_App
+namespace DankordClientApp
 {
-	public partial class DankordWindow : Form
+	public partial class ClientForm : Form
 	{
 		public const string WindowHeader = "Client";
 
-		private TcpClient _client;
+		private TcpClient tcpServer;
+
+		public StreamReader TcpReader => new(tcpServer.GetStream());
+		public StreamWriter TcpWriter => new(tcpServer.GetStream());
 
 		private string? UserName
-		{ get => nameBox.Text.Trim(); set { nameBox.Text = value; } }
+		{
+			get => nameBox.Text.Trim();
+			set => nameBox.Text = value ?? "";
+		}
 
 		private string? ServerIP
 		{
 			get => ClientIP.Text.Trim();
-			set => ClientIP.Text = value;
+			set => ClientIP.Text = value ?? "";
 		}
 
 		private string? ServerPort
 		{
 			get => ClientPort.Text.Trim();
-			set => ClientPort.Text = value;
+			set => ClientPort.Text = value ?? "";
 		}
 
-		public StreamReader? reader;
-		public StreamWriter? writer;
-
-		public DankordWindow()
+		public ClientForm()
 		{
 			InitializeComponent();
 			UserName = "Danek";
@@ -43,15 +48,12 @@ namespace Chat_App
 
 		private void Connect()
 		{
-			_client = new TcpClient();
+			tcpServer = new TcpClient();
+			TcpWriter.AutoFlush = true;
 			try
 			{
 				IPEndPoint IpEnd = new IPEndPoint(IPAddress.Parse(ServerIP), int.Parse(ServerPort));
-				_client.Connect(IpEnd);
-
-				reader = new StreamReader(_client.GetStream());
-				writer = new StreamWriter(_client.GetStream());
-				writer.AutoFlush = true;
+				tcpServer.Connect(IpEnd);
 
 				Messages.Text += ("Connected to Server!" + "\n");
 
@@ -68,7 +70,7 @@ namespace Chat_App
 		{
 			try
 			{
-				_client.Close();
+				tcpServer.Close();
 			}
 			catch (Exception ex)
 			{
@@ -78,43 +80,60 @@ namespace Chat_App
 
 		private void RequestNameChange()
 		{
-			if (string.IsNullOrEmpty(MessText.Text)) return;
-			if (!_client.Connected) return;
+			try
+			{
+				if (string.IsNullOrEmpty(MessText.Text)) return;
+				if (!tcpServer.Connected) return;
 
-			string tcpMessage = TcpMessage.TcpMessageToString(new(
-					TcpMessageType.NameChangeRequest,
-					UserName,
-					UserName
-				));
+				string tcpMessage = TcpMessage.TcpMessageToString(new(
+						TcpMessageType.NameChangeRequest,
+						UserName,
+						UserName
+					));
 
-			writer.WriteLine(tcpMessage);
+				TcpWriter.WriteLine(tcpMessage);
+			}
+			catch (Exception ex)
+			{
+				LogMessage(WindowHeader, ex.Message);
+			}
+
 		}
 
 		private void SendMessage()
 		{
-			if (string.IsNullOrEmpty(MessText.Text)) return;
-			if (!_client.Connected) return;
+			try
+			{
+				if (string.IsNullOrEmpty(MessText.Text)) return;
+				if (!tcpServer.Connected) return;
 
-			string tcpMessage = TcpMessage.TcpMessageToString(new(
-					TcpMessageType.PublicMessage,
-					UserName,
-					MessText.Text.Trim()
-				));
+				string tcpMessage = TcpMessage.TcpMessageToString(new(
+						TcpMessageType.PublicMessage,
+						UserName,
+						MessText.Text.Trim()
+					));
 
-			MessText.Text = string.Empty;
+				MessText.Text = string.Empty;
 
-			writer.WriteLine(tcpMessage);
+				TcpWriter.WriteLine(tcpMessage);
+			}
+			catch (Exception ex)
+			{
+				LogMessage(WindowHeader, ex.Message);
+			}
+
 		}
 
-		private void ReceiveMessage()
+		private void HandleConnection()
 		{
-			while (_client.Connected)
+			while (tcpServer.Connected)
 			{
 				try
 				{
-					if (reader == null) throw new NullReferenceException();
+					if (TcpReader == null) throw new NullReferenceException();
+					if (TcpWriter == null) throw new NullReferenceException();
 
-					string? receivedMessage = reader.ReadLine();
+					string? receivedMessage = TcpReader.ReadLine();
 					if (receivedMessage == null) return;
 					TcpMessage tcpMessage = TcpMessage.StringToTcpMessage(receivedMessage);
 
@@ -126,7 +145,7 @@ namespace Chat_App
 
 						case TcpMessageType.NameChangeRequest:
 							UserName = tcpMessage.Message;
-							LogMessage(tcpMessage.Sender, $"*Changed your username to {tcpMessage.Message}!*");
+							LogMessage(tcpMessage.Sender, $"*Changed your username to {UserName}!*");
 							return;
 
 						default:
@@ -143,10 +162,11 @@ namespace Chat_App
 
 		public void LogMessage(string sender, string message, bool includeTimeStamp = true) => Messages.Invoke(new MethodInvoker(delegate
 		{
-			Messages.Text += $"{(includeTimeStamp ? "[" + DateTime.Now + "] " : "")}{sender}: {message}\n";
+			DateTime t = DateTime.Now;
+			Messages.Text += $"{(includeTimeStamp ? $"[{t.Hour}:{t.Minute}:{t.Second}.{t.Millisecond}] " : "")}{sender}: {message}\n";
 		}));
 
-		private void Receiver_DoWork(object sender, DoWorkEventArgs e) => ReceiveMessage();
+		private void Receiver_DoWork(object sender, DoWorkEventArgs e) => HandleConnection();
 
 		private void SendButton_Click(object sender, EventArgs e) => SendMessage();
 
