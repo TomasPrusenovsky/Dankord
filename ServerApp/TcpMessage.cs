@@ -2,20 +2,21 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 [Serializable]
-public struct TcpMessage
+public struct TcpMessage(TcpMessageType type, string sender, string message)
 {
-	public TcpMessageType Type { get; set; }
-	public string Message { get; set; }
+	public TcpMessageType Type { get; set; } = type;
+	public string Sender { get; set; } = sender;
+	public string Message { get; set; } = message;
 
-	public TcpMessage(TcpMessageType type, string message)
-	{
-		Type = type;
-		Message = message;
-	}
+	public static string TcpMessageToString(TcpMessage message) => JsonSerializer.Serialize<TcpMessage>(message);
+
+	public static TcpMessage StringToTcpMessage(string message) => JsonSerializer.Deserialize<TcpMessage>(message);
+
 }
 
 public enum TcpMessageType
