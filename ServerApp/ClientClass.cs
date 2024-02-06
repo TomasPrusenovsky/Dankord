@@ -32,7 +32,7 @@ namespace ServerApp
 			writer = new(this.tcpClient.GetStream());
 			writer.AutoFlush = true;
 
-			ClientThread = new Thread(() => HandleClient(tcpClient, server));
+			ClientThread = new Thread(() =>  HandleClient(tcpClient, server));
 			ClientThread.Start();
 		}
 
