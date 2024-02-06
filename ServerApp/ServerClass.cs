@@ -1,7 +1,5 @@
 ﻿using System.Net;
-using System.Net.Http;
 using System.Net.Sockets;
-using System.Windows.Forms;
 
 namespace DankordServerApp
 {
@@ -90,24 +88,35 @@ namespace DankordServerApp
 			{
 				LogError(WindowHeader, ex.Message);
 			}
-
 		}
 
 		public void LogMessage(string sender, string message, bool includeTimeStamp = true)
 		{
 			DateTime t = DateTime.Now;
-			messageLog += $"{(includeTimeStamp ? $"[{t.Hour}:{t.Minute}:{t.Second}.{t.Millisecond}] " : "")}{sender}: {message}\n";
+			messageLog += $"{(includeTimeStamp ?
+				$"[{((t.Hour < 10) ? ($"0{t.Hour}") : (t.Hour))}" +
+				$":" +
+				$"{((t.Minute < 10) ? ($"0{t.Minute}") : (t.Minute))}" +
+				$":" +
+				$"{((t.Second < 10) ? ($"0{t.Second}") : (t.Second))}" +
+				$"." +
+				$"{((t.Millisecond < 10) ? ($"0{t.Millisecond}") : (t.Millisecond))}] " : "")}" +
+				$"" +
+				$"{sender}: {message}\n";
+
 			ServerForm.__instance.Invoke(new MethodInvoker(
 				ServerForm.__instance.RefreshOutputWindow
 			));
 		}
 
-		public void LogDebug(string sender, string message, bool includeTimeStamp = true)
-		{
+		public void LogDebug(string sender, string message, bool includeTimeStamp = true) => LogMessage(sender, message, includeTimeStamp);
 
+		public void FormatIntToTime(int i)
+		{
 		}
 
 		public void LogError(string sender, string message, bool includeTimeStamp = true) => LogMessage(sender, message, includeTimeStamp);
+
 		// zmenit az zavedeme barevny text bo to by bylo hrozne cool kamo
 		// proste predstav si ze by ten text mohl byt barevny
 		// kazdy uzivatel by si mohl vybrat vlastni barvicku,

@@ -1,9 +1,7 @@
 using DankordServerApp;
 using System.ComponentModel;
 using System.Net;
-using System.Net.Http;
 using System.Net.Sockets;
-using System.Windows.Forms;
 
 namespace DankordClientApp
 {
@@ -11,31 +9,35 @@ namespace DankordClientApp
 	{
 		public const string WindowHeader = "Client";
 
-		private TcpClient tcpServer;
+		private TcpClient? tcpServer;
 
-		public StreamReader TcpReader => new(tcpServer.GetStream());
-		public StreamWriter TcpWriter => new(tcpServer.GetStream());
-
-		private string? UserName
+		private string UserName
 		{
-			get => nameBox.Text.Trim();
-			set => nameBox.Text = value ?? "";
+			get => nameBox.Text.Trim() ?? "Velky Borec";
+			set => nameBox.Text = value.Trim() ?? "Velky Borec";
 		}
 
-		private string? ServerIP
+		private string ServerIP
 		{
-			get => ClientIP.Text.Trim();
-			set => ClientIP.Text = value ?? "";
+			get => ClientIP.Text.Trim() ?? "127.0.0.1";
+			set => ClientIP.Text = value.Trim() ?? "127.0.0.1";
 		}
 
-		private string? ServerPort
+		private string ServerPort
 		{
-			get => ClientPort.Text.Trim();
-			set => ClientPort.Text = value ?? "";
+			get => ClientPort.Text.Trim() ?? "7777";
+			set => ClientPort.Text = value.Trim() ?? "7777";
+		}
+
+		private string OutputText
+		{
+			get => Messages.Text;
+			set => Messages.Text = value;
 		}
 
 		public ClientForm()
 		{
+			tcpServer = new TcpClient();
 			InitializeComponent();
 			UserName = "Danek";
 		}
@@ -48,91 +50,21 @@ namespace DankordClientApp
 
 		private void Connect()
 		{
-			tcpServer = new TcpClient();
-			TcpWriter.AutoFlush = true;
-			try
-			{
-				IPEndPoint IpEnd = new IPEndPoint(IPAddress.Parse(ServerIP), int.Parse(ServerPort));
-				tcpServer.Connect(IpEnd);
-
-				Messages.Text += ("Connected to Server!" + "\n");
-
-				BackgroundReceiver.RunWorkerAsync();
-				BackgroundSender.WorkerSupportsCancellation = true;
-			}
-			catch (Exception ex)
-			{
-				LogMessage(WindowHeader, ex.Message);
-			}
-		}
-
-		private void Disconnect()
-		{
-			try
-			{
-				tcpServer.Close();
-			}
-			catch (Exception ex)
-			{
-				LogMessage(WindowHeader, ex.Message);
-			}
-		}
-
-		private void RequestNameChange()
-		{
-			try
-			{
-				if (string.IsNullOrEmpty(MessText.Text)) return;
-				if (!tcpServer.Connected) return;
-
-				string tcpMessage = TcpMessage.TcpMessageToString(new(
-						TcpMessageType.NameChangeRequest,
-						UserName,
-						UserName
-					));
-
-				TcpWriter.WriteLine(tcpMessage);
-			}
-			catch (Exception ex)
-			{
-				LogMessage(WindowHeader, ex.Message);
-			}
-
-		}
-
-		private void SendMessage()
-		{
-			try
-			{
-				if (string.IsNullOrEmpty(MessText.Text)) return;
-				if (!tcpServer.Connected) return;
-
-				string tcpMessage = TcpMessage.TcpMessageToString(new(
-						TcpMessageType.PublicMessage,
-						UserName,
-						MessText.Text.Trim()
-					));
-
-				MessText.Text = string.Empty;
-
-				TcpWriter.WriteLine(tcpMessage);
-			}
-			catch (Exception ex)
-			{
-				LogMessage(WindowHeader, ex.Message);
-			}
-
+			BackgroundReceiver.WorkerSupportsCancellation = true;
+			BackgroundReceiver.RunWorkerAsync();
 		}
 
 		private void HandleConnection()
 		{
-			while (tcpServer.Connected)
+			IPEndPoint IpEnd = new IPEndPoint(IPAddress.Parse(ServerIP), int.Parse(ServerPort));
+			try
 			{
-				try
+				tcpServer = new TcpClient();
+				tcpServer.Connect(IpEnd);
+				StreamReader TcpReader = new(tcpServer.GetStream());
+				LogMessage(WindowHeader, "Connected to server!");
+				while (tcpServer.Connected)
 				{
-					if (TcpReader == null) throw new NullReferenceException();
-					if (TcpWriter == null) throw new NullReferenceException();
-
 					string? receivedMessage = TcpReader.ReadLine();
 					if (receivedMessage == null) return;
 					TcpMessage tcpMessage = TcpMessage.StringToTcpMessage(receivedMessage);
@@ -153,18 +85,102 @@ namespace DankordClientApp
 							return;
 					}
 				}
-				catch (Exception ex)
-				{
-					LogMessage(WindowHeader, ex.Message);
-				}
 			}
+			catch (Exception ex)
+			{
+				LogMessage(WindowHeader, ex.Message);
+			}
+
+			Disconnect();
+		}
+
+		private void Disconnect()
+		{
+			try
+			{
+				tcpServer.Close();
+				tcpServer.Dispose();
+			}
+			catch (Exception ex)
+			{
+				LogMessage(WindowHeader, ex.Message);
+			}
+			LogMessage(WindowHeader, "Disconnected from server!");
+		}
+
+		private void RequestNameChange()
+		{
+			StreamWriter TcpWriter = new(tcpServer.GetStream());
+			try
+			{
+				if (string.IsNullOrEmpty(MessText.Text)) return;
+				if (!tcpServer.Connected) return;
+
+				string tcpMessage = TcpMessage.TcpMessageToString(new(
+						TcpMessageType.NameChangeRequest,
+						UserName,
+						UserName
+					));
+
+				TcpWriter.WriteLine(tcpMessage);
+			}
+			catch (Exception ex)
+			{
+				LogMessage(WindowHeader, ex.Message);
+			}
+		}
+
+		private void SendMessage()
+		{
+			try
+			{
+				if (string.IsNullOrEmpty(MessText.Text))
+				{
+					LogError(WindowHeader, "message was null.");
+					return;
+				}
+				if (!tcpServer.Connected)
+				{
+					LogError(WindowHeader, "tried to send message to null server.");
+					return;
+				}
+
+				if (MessText.Text.StartsWith('/'))
+					HandleConsoleInput();
+
+				string tcpMessage = TcpMessage.TcpMessageToString(new(
+						TcpMessageType.PublicMessage,
+						UserName,
+						MessText.Text.Trim()
+					));
+
+				MessText.Text = string.Empty;
+
+				//TcpWriter.WriteLine(tcpMessage);
+				new StreamWriter(tcpServer.GetStream()).WriteLine(tcpMessage);
+			}
+			catch (Exception ex)
+			{
+				LogMessage(WindowHeader, ex.Message);
+			}
+		}
+
+		private void HandleConsoleInput()
+		{
+			LogMessage(WindowHeader, "command accepted");
+			// Handle client-side console commands here
+			// if command isn't client-side, pass it to the server via TcpMessageType.ConsoleCommand
 		}
 
 		public void LogMessage(string sender, string message, bool includeTimeStamp = true) => Messages.Invoke(new MethodInvoker(delegate
 		{
 			DateTime t = DateTime.Now;
-			Messages.Text += $"{(includeTimeStamp ? $"[{t.Hour}:{t.Minute}:{t.Second}.{t.Millisecond}] " : "")}{sender}: {message}\n";
+			OutputText += $"{(includeTimeStamp ? $"[{t.Hour}:{t.Minute}:{t.Second}.{t.Millisecond}] " : "")}{sender}: {message}\n";
 		}));
+
+		public void LogDebug(string sender, string message, bool includeTimeStamp = true) => LogMessage(sender, message, includeTimeStamp);
+
+		public void LogError(string sender, string message, bool includeTimeStamp = true) => LogMessage(sender, message, includeTimeStamp);
 
 		private void Receiver_DoWork(object sender, DoWorkEventArgs e) => HandleConnection();
 
@@ -172,9 +188,23 @@ namespace DankordClientApp
 
 		private void ChangeButton_Click(object sender, EventArgs e) => RequestNameChange();
 
-		private void ConnectClient_Click(object sender, EventArgs e) => Connect();
+		private void ConnectClient_Click(object sender, EventArgs e)
+		{
+			ConnectClient.Enabled = false;
+			if (!tcpServer.Connected)
+			{
+				Connect();
+				ConnectClient.Text = "Disconnect";
+			}
+			else
+			{
+				Disconnect();
+				ConnectClient.Text = "Connect";
+			}
+			ConnectClient.Enabled = true;
+		}
 
-		private void vitekButton_Click(object sender, EventArgs e)
+		private void VitekButton_Click(object sender, EventArgs e)
 		{
 			ServerIP = "185.82.239.12";
 			ServerPort = "25565";

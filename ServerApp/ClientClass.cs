@@ -1,116 +1,133 @@
-﻿using System.ComponentModel;
+﻿using System.Net;
 using System.Net.Sockets;
-using System.Numerics;
-using System.Text.Json;
-using System.Windows.Forms;
 
 namespace DankordServerApp
 {
 	[Serializable]
 	internal class Client
 	{
-		private string WindowHeader { get { return $"{userName} Handler"; } }
+		private static uint __Id = 0;
 
-		public readonly uint id;
+		private string WindowHeader
+		{ get { return $"ClientThread[{id}]"; } }
 
-		public readonly Server server;
+		public readonly uint id = Interlocked.Increment(ref __Id); // thread-safe id management
 
 		private readonly Thread ClientThread;
 
-		private readonly TcpClient tcpClient;
+		public Server? server;
 
-		public StreamReader TcpReader => new(tcpClient.GetStream());
-		public StreamWriter TcpWriter => new(tcpClient.GetStream());
+		private TcpClient? tcpClient;
 
-		public bool IsConnected => tcpClient.Connected;
+		public bool IsServerAdministrator;
 
-		private string userName;
+		private string? userName;
 		//private Image icon; // nebo tak neco kamo
 
 		public Client(TcpClient tcpClient, Server server)
+		{
+			ClientThread = new Thread(() => HandleClient(tcpClient, server))
+			{
+				Name = WindowHeader
+			};
+			ClientThread.Start();
+		}
+
+		private async Task HandleClient(TcpClient tcpClient, Server server)
 		{
 			userName = "danek";
 			this.server = server;
 			this.tcpClient = tcpClient;
 
-			ClientThread = new Thread(HandleClient);
-			ClientThread.Start();
+			string? endPointIP = (tcpClient.Client.RemoteEndPoint as IPEndPoint)?.Address.ToString();
 
-			//new Thread(HandleClient).Start();
-		}
+			if (endPointIP != null)
+				if (endPointIP.StartsWith("192.168."))
+					IsServerAdministrator = true;
 
-		public string WaitForMessage()
-		{
-			string? message = TcpReader.ReadLine();
-			if (message == null)
+			if (!tcpClient.Connected)
 			{
-				server.LogError(WindowHeader, "Received message from client, but it is null");
-				return string.Empty;
+				server.LogDebug(WindowHeader, "Tried to handle disconnected client...");
+				return;
 			}
-			return message;
-			//string? message = await TcpReader.ReadLineAsync();
-			//TcpMessage receivedMessage = JsonSerializer.Deserialize<TcpMessage>(message, JsonSerializerOptions.Default);
-			//return message;
-		}
 
-		public void SendMessage(TcpMessage message)
-		{
-			TcpWriter.WriteLine(TcpMessage.TcpMessageToString(message));
-		}
-
-		private void HandleClient()
-		{
-			if (!IsConnected) server.LogMessage(WindowHeader, "Tried to handle disconnected client...");
-
-			TcpWriter.AutoFlush = true;
-
-			while (IsConnected)
+			while (tcpClient.Connected)
 			{
 				try
 				{
-					server.LogMessage(WindowHeader, "Awaiting message from client...");
-					string? message = WaitForMessage();
-					if (message == null)
+					server.LogDebug(WindowHeader, "Awaiting message from client...");
+					TcpMessage tcpMessage = await AwaitMessage();
+					server.LogDebug(WindowHeader, "message....");
+
+					if (!tcpMessage.IsValid())
 					{
-						server.LogMessage(WindowHeader, "Received message was null.");
+						server.LogDebug(WindowHeader, $"Received invalid message from client '{userName}', disconnecting.");
+						Dispose();
 						continue;
 					}
-
-					TcpMessage tcpMessage = TcpMessage.StringToTcpMessage(message);
 
 					switch (tcpMessage.Type)
 					{
 						case TcpMessageType.PublicMessage:
-							server.LogMessage(tcpMessage.Sender, tcpMessage.Message);
+							server.LogMessage(userName, tcpMessage.Message);
 							server.BroadcastMessage(tcpMessage);
 							break;
 
 						case TcpMessageType.NameChangeRequest:
-							server.LogMessage(tcpMessage.Sender, $"{userName} Changed their username to {tcpMessage.Message}!");
+							server.LogDebug(userName, $"{userName} Changed their username to {tcpMessage.Message}!");
 							userName = tcpMessage.Message;
 							break;
 
+						case TcpMessageType.ConsoleCommand:
+							//handle console commands
+							server.LogDebug(userName, tcpMessage.Message);
+							break;
+
 						default:
-							server.LogMessage(WindowHeader, $"Server sent back a TcpMessage with the {tcpMessage.Type} type, which should not be possible");
+							server.LogDebug(WindowHeader, $"Client sent back a TcpMessage with the {tcpMessage.Type} type, which should not be possible");
 							break;
 					}
-
-
-					server.LogMessage(WindowHeader, "Message received!");
-					message ??= string.Empty;
-					server.LogMessage(userName, message);
 				}
 				catch (Exception ex)
 				{
 					server.LogError(WindowHeader, ex.Message);
 				}
 			}
-			server.LogMessage(WindowHeader, "Client disconnected.");
-			Dispose();
+			server.LogDebug(WindowHeader, "Client disconnected.");
+			//finally dispose of the client
+			this.Dispose();
+		}
+
+		public async Task<TcpMessage> AwaitMessage()
+		{
+			StreamReader TcpReader = new(tcpClient.GetStream());
+
+			SendMessage(new TcpMessage(TcpMessageType.PublicMessage, "Server", "I see you!"));
+			server.LogDebug(WindowHeader, "Sent acknowledgement message to client");
+			string? message = await TcpReader.ReadLineAsync();
+			//string? message = await new StreamReader(tcpClient.GetStream()).ReadLineAsync();
+
+			if (message == null)
+				return new TcpMessage();
+
+			TcpMessage tcpMessage = TcpMessage.StringToTcpMessage(message);
+
+			return tcpMessage;
+		}
+
+		public void SendMessage(TcpMessage message)
+		{
+			StreamWriter TcpWriter = new(tcpClient.GetStream());
+			TcpWriter.WriteLine(TcpMessage.TcpMessageToString(message));
 		}
 
 		private void Dispose()
 		{
+			tcpClient.Close();
+			tcpClient.Dispose();
+			server.clientPool.Remove(this);
 		}
+
+		private void LogMessage(string sender, string message, bool includeTimeStamp = true) => server.LogMessage(sender, message, includeTimeStamp);
 	}
 }

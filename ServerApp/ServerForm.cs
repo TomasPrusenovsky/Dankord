@@ -1,6 +1,3 @@
-using System.Net;
-using System.Diagnostics;
-
 namespace DankordServerApp
 {
 	public partial class ServerForm : Form
@@ -58,8 +55,8 @@ namespace DankordServerApp
 		{
 			if (server != null)
 				OutputTextWindow.Text = server.messageLog;
-			else
-				OutputTextWindow.Text = string.Empty;
+			//else
+			//	OutputTextWindow.Text = string.Empty;
 		}
 	}
 }

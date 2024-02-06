@@ -176,7 +176,7 @@
 			vitekButton.TabIndex = 22;
 			vitekButton.Text = "Vitek";
 			vitekButton.UseVisualStyleBackColor = true;
-			vitekButton.Click += vitekButton_Click;
+			vitekButton.Click += VitekButton_Click;
 			// 
 			// ClientForm
 			// 
